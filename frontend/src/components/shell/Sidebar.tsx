@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { EllipsisVertical, FileText, Image as ImageIcon, LogOut, Tag, Users, type LucideIcon } from "lucide-react";
+import { EllipsisVertical, FileText, Image as ImageIcon, LogOut, Tag, Users, UsersRound, type LucideIcon } from "lucide-react";
 import { Menu } from "@/components/ui/Menu";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
@@ -17,6 +17,7 @@ const NAV: NavItem[] = [
   { label: "Posts", href: "/posts", icon: FileText },
   { label: "Authors", href: "/authors", icon: Users },
   { label: "Tags", href: "/tags", icon: Tag },
+  { label: "Audiences", href: "/audiences", icon: UsersRound },
   { label: "Media", href: "/media", icon: ImageIcon },
 ];
 

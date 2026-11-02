@@ -161,6 +161,21 @@ export function PostsListCanvas() {
         ),
     },
     {
+      key: "audiences",
+      header: "Audience",
+      width: "200px",
+      render: (post) => {
+        const primary = (post.primaryAudiences ?? []).map((a) => a.name).join(", ") || "None";
+        const secondary = (post.secondaryAudiences ?? []).map((a) => a.name).join(", ") || "None";
+        return (
+          <div className="flex min-w-0 flex-col gap-1 text-[11.5px] text-secondary">
+            <span className="truncate" title={`Primary: ${primary}`}><span className="font-semibold">Primary:</span> {primary}</span>
+            <span className="truncate" title={`Secondary: ${secondary}`}><span className="font-semibold">Secondary:</span> {secondary}</span>
+          </div>
+        );
+      },
+    },
+    {
       key: "updatedAt",
       header: "Updated",
       width: "116px",
@@ -277,7 +292,7 @@ export function PostsListCanvas() {
           )}
         </div>
 
-        <div className="px-1">
+        <div className="overflow-x-auto px-1">
           {posts.error ? (
             <div className="p-4">
               <ErrorState title="Couldn't load posts" error={posts.error} onRetry={posts.reload} />
@@ -300,6 +315,7 @@ export function PostsListCanvas() {
               )}
             </div>
           ) : (
+            <div className="min-w-[1120px]">
             <DataTable
               caption="Posts"
               columns={columns}
@@ -310,6 +326,7 @@ export function PostsListCanvas() {
               onSortChange={onSortChange}
               loading={posts.loading}
             />
+            </div>
           )}
         </div>
 
