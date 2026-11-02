@@ -87,16 +87,14 @@ export function PostsListCanvas() {
   });
   const correctedListParams =
     !posts.loading && !posts.error && pageMeta ? reconcilePostListPage(listParams, pageMeta) : null;
-  const isPageCorrectionPending = pageCorrectionQueryKey === listQueryKey || correctedListParams !== null;
+  const isPageCorrectionPending =
+    !posts.error && (pageCorrectionQueryKey === listQueryKey || correctedListParams !== null);
 
   // Only reconcile after the response for this exact page has settled. During an
   // ordinary page/filter request, useAsync keeps the previous rows visible.
   useEffect(() => {
     if (posts.loading) return;
-    if (posts.error) {
-      if (pageCorrectionQueryKey === listQueryKey) setPageCorrectionQueryKey(null);
-      return;
-    }
+    if (posts.error) return;
     if (!pageMeta) return;
 
     const corrected = reconcilePostListPage(
@@ -113,6 +111,8 @@ export function PostsListCanvas() {
       pageMeta,
     );
     if (corrected) {
+      // The settled response is async external data; mark this correction before changing page.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPageCorrectionQueryKey(listQueryKey);
       setPage(corrected.page ?? 0);
     } else if (pageCorrectionQueryKey === listQueryKey) {
