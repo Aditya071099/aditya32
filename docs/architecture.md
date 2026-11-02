@@ -72,6 +72,12 @@ All under `/api/v1`, JSON in camelCase, wrapped in the response envelope.
 - The post body is Tiptap JSON. On save the backend derives its plain text (for search),
   word count, reading time, and the library images it embeds; links must be
   `http(s)`, `mailto:`, `/` or `#`, and images `http(s)` or `/`.
+- A canonical library image URL (`/api/v1/media/{id}/file`) identifies the media
+  reference even when `attrs.mediaId` is absent. If both the URL and `mediaId` are
+  supplied, they must identify the same media or the save fails with
+  `400 INVALID_CONTENT`. For other image URLs, an explicitly supplied `mediaId`
+  remains the media reference. A canonical URL pointing to a nonexistent media
+  record fails with `400 UNKNOWN_REFERENCE`.
 - Text can't contain the NUL character (U+0000), which PostgreSQL can't store in text or
   jsonb. Text fields, the post body (anywhere in the document) and the `q`/`tag` list
   parameters reject it with `400` before anything reaches the database; new text fields
@@ -220,8 +226,16 @@ route (`app/api/v1/[...path]/route.ts`), which:
 the cookie (expiring with the token); `/api/auth/logout` deletes it. `proxy.ts` only
 checks that the cookie exists — the backend validates the token on every call.
 
-Post bodies are Tiptap (ProseMirror) **JSON**, never HTML. Images inside a body
-carry `attrs.mediaId`, so the backend can tell which library images a post uses.
+Post bodies are Tiptap (ProseMirror) **JSON**, never HTML. For images using the
+media library, the backend recognizes the canonical `/api/v1/media/{id}/file`
+URL as a media reference, so `attrs.mediaId` is optional for those images. When
+both are present, the URL ID and `mediaId` must match. Other image URLs are
+tracked only when an explicit `attrs.mediaId` is supplied.
+
+If an existing post contains a canonical library image URL and a conflicting
+`attrs.mediaId`, saving it fails with `400 INVALID_CONTENT`. The editor identifies
+the offending image and allows the user to replace it with a valid media-library
+image before saving.
 
 ## Health
 

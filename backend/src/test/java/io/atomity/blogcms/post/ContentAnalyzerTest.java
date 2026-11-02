@@ -46,10 +46,64 @@ class ContentAnalyzerTest {
     void collectsLibraryImages() throws Exception {
         UUID id = UUID.randomUUID();
         var analysis = ContentAnalyzer.analyze(parse(
-                "{'type':'doc','content':[{'type':'image','attrs':{'src':'/api/v1/media/x/file','mediaId':'" + id + "'}},"
+                "{'type':'doc','content':[{'type':'image','attrs':{'src':'/api/v1/media/" + id + "/file','mediaId':'" + id + "'}},"
                         + "{'type':'image','attrs':{'src':'https://example.com/a.png'}}]}"));
         assertThat(analysis.imageIds()).containsExactly(id);
         assertThat(analysis.isEmpty()).isFalse();
+    }
+
+    @Test
+    void derivesLibraryImageIdWhenMediaIdIsMissing() throws Exception {
+        UUID id = UUID.randomUUID();
+        var analysis = ContentAnalyzer.analyze(parse(
+                "{'type':'doc','content':[{'type':'image','attrs':{'src':'/api/v1/media/" + id + "/file'}}]}"));
+
+        assertThat(analysis.imageIds()).containsExactly(id);
+    }
+
+    @Test
+    void acceptsMatchingLibraryUrlAndMediaId() throws Exception {
+        UUID id = UUID.randomUUID();
+        var analysis = ContentAnalyzer.analyze(parse(
+                "{'type':'doc','content':[{'type':'image','attrs':{'src':'/api/v1/media/" + id + "/file','mediaId':'" + id + "'}}]}"));
+
+        assertThat(analysis.imageIds()).containsExactly(id);
+    }
+
+    @Test
+    void rejectsMismatchedLibraryUrlAndMediaId() throws Exception {
+        UUID urlId = UUID.randomUUID();
+        UUID mediaId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> ContentAnalyzer.analyze(parse(
+                "{'type':'doc','content':[{'type':'image','attrs':{'src':'/api/v1/media/" + urlId + "/file','mediaId':'" + mediaId + "'}}]}")))
+                .isInstanceOf(ApiException.class)
+                .extracting("errorCode").isEqualTo("INVALID_CONTENT");
+    }
+
+    @Test
+    void tracksExplicitMediaIdForExternalImageUrl() throws Exception {
+        UUID id = UUID.randomUUID();
+        var analysis = ContentAnalyzer.analyze(parse(
+                "{'type':'doc','content':[{'type':'image','attrs':{'src':'https://example.com/a.png','mediaId':'" + id + "'}}]}"));
+
+        assertThat(analysis.imageIds()).containsExactly(id);
+    }
+
+    @Test
+    void doesNotTrackExternalImageWithoutMediaId() throws Exception {
+        var analysis = ContentAnalyzer.analyze(parse(
+                "{'type':'doc','content':[{'type':'image','attrs':{'src':'https://example.com/a.png'}}]}"));
+
+        assertThat(analysis.imageIds()).isEmpty();
+    }
+
+    @Test
+    void rejectsInvalidExplicitMediaId() {
+        assertThatThrownBy(() -> ContentAnalyzer.analyze(parse(
+                "{'type':'doc','content':[{'type':'image','attrs':{'src':'https://example.com/a.png','mediaId':'not-a-uuid'}}]}")))
+                .isInstanceOf(ApiException.class)
+                .extracting("errorCode").isEqualTo("INVALID_CONTENT");
     }
 
     @Test

@@ -14,7 +14,7 @@ import { PostStatusChip } from "@/components/ui/StatusChip";
 import { useToast } from "@/components/ui/Toast";
 import { useAsync } from "@/hooks/useAsync";
 import { useUnsavedChangesWarning } from "@/hooks/useUnsavedChangesWarning";
-import { countWords, readingTimeMinutes } from "@/lib/content";
+import { countWords, hasLibraryImageReferenceMismatch, readingTimeMinutes } from "@/lib/content";
 import { timeAgo } from "@/lib/format";
 import { slugify } from "@/lib/slug";
 import { ApiError } from "@/types/api";
@@ -117,6 +117,10 @@ function PostEditor({ initial }: { initial: Post | null }) {
     if (hasErrors) {
       setShowErrors(true);
       toast.error("Fix the highlighted fields before saving.");
+      return null;
+    }
+    if (hasLibraryImageReferenceMismatch(form.content)) {
+      toast.error("An image's media ID does not match its source URL. Find and replace that image before saving.");
       return null;
     }
     const sent = form;

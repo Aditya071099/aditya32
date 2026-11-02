@@ -89,6 +89,63 @@ class MediaApiTest extends IntegrationTest {
     }
 
     @Test
+    void libraryImageWithoutMediaIdIsStillTrackedAndCannotBeDeleted() throws Exception {
+        JsonNode media = upload("inline-without-id.png", "image/png", TestImages.encode("png", 20, 20));
+        String id = media.path("id").asText();
+
+        Map<String, Object> image = Map.of("type", "image",
+                "attrs", Map.of("src", media.path("url").asText()));
+        Map<String, Object> body = new HashMap<>();
+        body.put("title", "Has an image without mediaId");
+        body.put("content", Map.of("type", "doc", "content", List.of(image)));
+        String postId = data(call(post("/api/v1/posts"), body).andExpect(status().isCreated())).path("id").asText();
+
+        call(get("/api/v1/media"))
+                .andExpect(jsonPath("$.data[?(@.id == '" + id + "')].usageCount")
+                        .value(org.hamcrest.Matchers.contains(1)));
+        call(delete("/api/v1/media/" + id))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errors[0].errorCode").value("MEDIA_IN_USE"));
+
+        call(delete("/api/v1/posts/" + postId)).andExpect(status().isNoContent());
+        call(delete("/api/v1/media/" + id)).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void mismatchedLibraryImageMediaIdIsRejected() throws Exception {
+        JsonNode imageA = upload("image-a.png", "image/png", TestImages.encode("png", 20, 20));
+        JsonNode imageB = upload("image-b.png", "image/png", TestImages.encode("png", 20, 20));
+
+        Map<String, Object> image = Map.of("type", "image",
+                "attrs", Map.of("src", imageA.path("url").asText(), "mediaId", imageB.path("id").asText()));
+        Map<String, Object> body = new HashMap<>();
+        body.put("title", "Has mismatched image reference");
+        body.put("content", Map.of("type", "doc", "content", List.of(image)));
+
+        call(post("/api/v1/posts"), body)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].errorCode").value("INVALID_CONTENT"));
+
+	call(delete("/api/v1/media/" + imageA.path("id").asText())).andExpect(status().isNoContent());
+	call(delete("/api/v1/media/" + imageB.path("id").asText())).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void nonexistentLibraryImageReferenceIsRejected() throws Exception {
+        String missingId = java.util.UUID.randomUUID().toString();
+
+        Map<String, Object> image = Map.of("type", "image",
+                "attrs", Map.of("src", "/api/v1/media/" + missingId + "/file"));
+        Map<String, Object> body = new HashMap<>();
+        body.put("title", "References nonexistent media");
+        body.put("content", Map.of("type", "doc", "content", List.of(image)));
+
+        call(post("/api/v1/posts"), body)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].errorCode").value("UNKNOWN_REFERENCE"));
+    }
+
+    @Test
     void imageInUseCannotBeDeleted() throws Exception {
         JsonNode media = upload("inline.png", "image/png", TestImages.encode("png", 20, 20));
         String id = media.path("id").asText();
