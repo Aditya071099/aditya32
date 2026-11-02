@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- cover thumbnails are user uploads (data/remote URLs) */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -37,6 +37,7 @@ import { listAuthors } from "@/modules/authors/api";
 import { listTags } from "@/modules/tags/api";
 import type { PostSortKey, PostStatus, PostSummary } from "@/types/post";
 import { archivePost, countPostsByStatus, deletePost, duplicatePost, listPosts, publishPost, unpublishPost } from "./api";
+import { buildPostListParams, reconcilePostListPage } from "./list-page-reconciliation";
 
 type StatusTab = PostStatus | "ALL";
 
@@ -52,29 +53,97 @@ export function PostsListCanvas() {
   const [authorId, setAuthorId] = useState("");
   const [sort, setSort] = useState<DataTableSort>({ key: "updatedAt", direction: "desc" });
   const [page, setPage] = useState(0);
+  const [pageCorrectionQueryKey, setPageCorrectionQueryKey] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PostSummary | null>(null);
   const debouncedQuery = useDebouncedValue(query);
 
   const posts = useAsync(
     () =>
-      listPosts({
-        status: tab === "ALL" ? undefined : tab,
-        q: debouncedQuery,
-        tagId: tagId || undefined,
-        authorId: authorId || undefined,
+      listPosts(
+        buildPostListParams({
+          tab,
+          query: debouncedQuery,
+          tagId,
+          authorId,
+          sort: sort.key as PostSortKey,
+          direction: sort.direction,
+          page,
+          pageSize: PAGE_SIZE,
+        }),
+      ),
+    [tab, debouncedQuery, tagId, authorId, sort, page],
+  );
+  const pageMeta = posts.data?.meta;
+  const listQueryKey = JSON.stringify([tab, debouncedQuery, tagId, authorId, sort.key, sort.direction, PAGE_SIZE]);
+  const listParams = buildPostListParams({
+    tab,
+    query: debouncedQuery,
+    tagId,
+    authorId,
+    sort: sort.key as PostSortKey,
+    direction: sort.direction,
+    page,
+    pageSize: PAGE_SIZE,
+  });
+  const correctedListParams =
+    !posts.loading && !posts.error && pageMeta ? reconcilePostListPage(listParams, pageMeta) : null;
+  const isPageCorrectionPending =
+    !posts.error && (pageCorrectionQueryKey === listQueryKey || correctedListParams !== null);
+
+  // Only reconcile after the response for this exact page has settled. During an
+  // ordinary page/filter request, useAsync keeps the previous rows visible.
+  useEffect(() => {
+    if (posts.loading) return;
+    if (posts.error) return;
+    if (!pageMeta) return;
+
+    const corrected = reconcilePostListPage(
+      buildPostListParams({
+        tab,
+        query: debouncedQuery,
+        tagId,
+        authorId,
         sort: sort.key as PostSortKey,
         direction: sort.direction,
         page,
-        size: PAGE_SIZE,
+        pageSize: PAGE_SIZE,
       }),
-    [tab, debouncedQuery, tagId, authorId, sort, page],
-  );
+      pageMeta,
+    );
+    if (corrected) {
+      // The settled response is async external data; mark this correction before changing page.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPageCorrectionQueryKey(listQueryKey);
+      setPage(corrected.page ?? 0);
+    } else if (pageCorrectionQueryKey === listQueryKey) {
+      setPageCorrectionQueryKey(null);
+    }
+  }, [
+    posts.loading,
+    posts.error,
+    pageMeta,
+    tab,
+    debouncedQuery,
+    tagId,
+    authorId,
+    sort.key,
+    sort.direction,
+    page,
+    listQueryKey,
+    pageCorrectionQueryKey,
+  ]);
+
   const counts = useAsync(countPostsByStatus, []);
   const authors = useAsync(listAuthors, []);
   const tags = useAsync(listTags, []);
 
   const hasFilters = Boolean(query || tagId || authorId);
+  const changePage = (value: number) => {
+    setPageCorrectionQueryKey(null);
+    setPage(value);
+  };
   const resetPage = <T,>(setter: (value: T) => void) => (value: T) => {
+    setPageCorrectionQueryKey(null);
     setter(value);
     setPage(0);
   };
@@ -220,6 +289,7 @@ export function PostsListCanvas() {
   ];
 
   const onSortChange = (key: string) => {
+    setPageCorrectionQueryKey(null);
     setSort((current) => ({
       key,
       direction: current.key === key && current.direction === "desc" ? "asc" : key === "title" ? "asc" : "desc",
@@ -227,7 +297,7 @@ export function PostsListCanvas() {
     setPage(0);
   };
 
-  const rows = posts.data?.items ?? [];
+  const rows = isPageCorrectionPending ? [] : posts.data?.items ?? [];
   const isFirstLoad = posts.loading && !posts.data;
 
   return (
@@ -281,6 +351,7 @@ export function PostsListCanvas() {
               type="button"
               className="btn btn-ghost btn-sm"
               onClick={() => {
+                setPageCorrectionQueryKey(null);
                 setQuery("");
                 setTagId("");
                 setAuthorId("");
@@ -297,7 +368,7 @@ export function PostsListCanvas() {
             <div className="p-4">
               <ErrorState title="Couldn't load posts" error={posts.error} onRetry={posts.reload} />
             </div>
-          ) : !isFirstLoad && rows.length === 0 ? (
+          ) : !isFirstLoad && !posts.loading && !isPageCorrectionPending && rows.length === 0 ? (
             <div className="p-4">
               {hasFilters || tab !== "ALL" ? (
                 <EmptyState icon={SearchX} title="No posts match" description="Try a different search, status or filter." />
@@ -324,15 +395,15 @@ export function PostsListCanvas() {
               onRowClick={(post) => router.push(`/posts/${post.id}`)}
               sort={sort}
               onSortChange={onSortChange}
-              loading={posts.loading}
+              loading={posts.loading || isPageCorrectionPending}
             />
             </div>
           )}
         </div>
 
-        {posts.data && posts.data.meta.totalElements > 0 && (
+        {posts.data && posts.data.meta.totalElements > 0 && !isPageCorrectionPending && (
           <div className="border-t border-line px-3.5 py-2">
-            <Pagination meta={posts.data.meta} onPageChange={setPage} noun="posts" />
+            <Pagination meta={posts.data.meta} onPageChange={changePage} noun="posts" />
           </div>
         )}
       </div>
