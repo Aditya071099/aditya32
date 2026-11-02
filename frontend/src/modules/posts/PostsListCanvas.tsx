@@ -69,6 +69,20 @@ export function PostsListCanvas() {
       }),
     [tab, debouncedQuery, tagId, authorId, sort, page],
   );
+  const pageMeta = posts.data?.meta;
+  if (!posts.loading && pageMeta) {
+    const lastPage = Math.max(0, pageMeta.totalPages - 1);
+    const validPage = Math.min(page, lastPage);
+    if (validPage !== page) setPage(validPage);
+  }
+  const isPageCorrectionPending = Boolean(
+    pageMeta && (
+      (pageMeta.totalPages > 0 && page >= pageMeta.totalPages) ||
+      (pageMeta.totalPages === 0 && page > 0) ||
+      (posts.loading && pageMeta.page !== page)
+    ),
+  );
+
   const counts = useAsync(countPostsByStatus, []);
   const authors = useAsync(listAuthors, []);
   const tags = useAsync(listTags, []);
@@ -212,7 +226,7 @@ export function PostsListCanvas() {
     setPage(0);
   };
 
-  const rows = posts.data?.items ?? [];
+  const rows = isPageCorrectionPending ? [] : posts.data?.items ?? [];
   const isFirstLoad = posts.loading && !posts.data;
 
   return (
@@ -282,7 +296,7 @@ export function PostsListCanvas() {
             <div className="p-4">
               <ErrorState title="Couldn't load posts" error={posts.error} onRetry={posts.reload} />
             </div>
-          ) : !isFirstLoad && rows.length === 0 ? (
+          ) : !isFirstLoad && !isPageCorrectionPending && rows.length === 0 ? (
             <div className="p-4">
               {hasFilters || tab !== "ALL" ? (
                 <EmptyState icon={SearchX} title="No posts match" description="Try a different search, status or filter." />
@@ -308,12 +322,12 @@ export function PostsListCanvas() {
               onRowClick={(post) => router.push(`/posts/${post.id}`)}
               sort={sort}
               onSortChange={onSortChange}
-              loading={posts.loading}
+              loading={posts.loading || isPageCorrectionPending}
             />
           )}
         </div>
 
-        {posts.data && posts.data.meta.totalElements > 0 && (
+        {posts.data && posts.data.meta.totalElements > 0 && !isPageCorrectionPending && (
           <div className="border-t border-line px-3.5 py-2">
             <Pagination meta={posts.data.meta} onPageChange={setPage} noun="posts" />
           </div>
