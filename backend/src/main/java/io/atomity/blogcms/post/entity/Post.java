@@ -1,12 +1,15 @@
 package io.atomity.blogcms.post.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.atomity.blogcms.audience.entity.AudienceAssignment;
 import io.atomity.blogcms.author.entity.Author;
 import io.atomity.blogcms.markdown.entity.MarkdownSource;
 import io.atomity.blogcms.media.entity.Media;
 import io.atomity.blogcms.shared.Timestamps;
 import io.atomity.blogcms.tag.entity.Tag;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -123,6 +126,10 @@ public class Post {
             inverseJoinColumns = @JoinColumn(name = "tag_id"))
     private Set<Tag> tags = new HashSet<>();
 
+    @ElementCollection
+    @CollectionTable(name = "post_audiences", joinColumns = @JoinColumn(name = "post_id"))
+    private Set<AudienceAssignment> audiences = new HashSet<>();
+
     /** Library images embedded in the body — derived from {@link #content} on every edit. */
     @ManyToMany
     @JoinTable(name = "post_images",
@@ -161,6 +168,7 @@ public class Post {
         this.featured = edit.featured();
         replace(this.authors, edit.authors());
         replace(this.tags, edit.tags());
+        replace(this.audiences, edit.audiences());
         replace(this.inlineImages, edit.inlineImages());
         touch();
     }
@@ -206,7 +214,8 @@ public class Post {
         copy.createdAt = Timestamps.now();
         copy.edit(new PostEdit(newTitle, newSlug, excerpt, content.deepCopy(), contentText, wordCount, readingTimeMinutes,
                 coverImage, coverImageAlt, markdownSource, seoTitle, metaDescription, focusKeyword, canonicalUrl, false,
-                authors, tags, inlineImages));
+                authors, tags, inlineImages, audiences.stream()
+                        .map(a -> new AudienceAssignment(a.getAudience(), a.getType())).toList()));
         return copy;
     }
 
@@ -242,4 +251,5 @@ public class Post {
     public long getVersion() { return version; }
     public List<Author> getAuthors() { return authors; }
     public Set<Tag> getTags() { return tags; }
+    public Set<AudienceAssignment> getAudiences() { return audiences; }
 }

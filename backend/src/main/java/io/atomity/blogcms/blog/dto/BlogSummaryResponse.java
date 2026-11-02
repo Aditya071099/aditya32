@@ -1,5 +1,7 @@
 package io.atomity.blogcms.blog.dto;
 
+import io.atomity.blogcms.audience.dto.AudienceRef;
+import io.atomity.blogcms.audience.entity.AudienceType;
 import io.atomity.blogcms.author.dto.AuthorRef;
 import io.atomity.blogcms.media.dto.MediaRef;
 import io.atomity.blogcms.post.dto.PostSummaryResponse;
@@ -23,6 +25,8 @@ public record BlogSummaryResponse(
         boolean featured,
         List<AuthorRef> authors,
         List<TagRef> tags,
+        List<AudienceRef> primaryAudiences,
+        List<AudienceRef> secondaryAudiences,
         MediaRef coverImage,
         int wordCount,
         int readingTimeMinutes,
@@ -32,6 +36,8 @@ public record BlogSummaryResponse(
     public static BlogSummaryResponse of(Post post) {
         return new BlogSummaryResponse(post.getId(), post.getTitle(), post.getSlug(), post.getExcerpt(),
                 post.isFeatured(), PostSummaryResponse.authorRefs(post), PostSummaryResponse.tagRefs(post),
+                PostSummaryResponse.audienceRefs(post, AudienceType.PRIMARY),
+                PostSummaryResponse.audienceRefs(post, AudienceType.SECONDARY),
                 MediaRef.of(post.getCoverImage()), post.getWordCount(), post.getReadingTimeMinutes(),
                 post.getPublishedAt(), post.getUpdatedAt());
     }

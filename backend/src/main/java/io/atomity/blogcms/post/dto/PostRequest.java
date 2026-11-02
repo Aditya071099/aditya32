@@ -64,5 +64,11 @@ public record PostRequest(
         @Size(max = 30, message = "may list at most 30 tags")
         List<@NotNull UUID> tagIds,
 
-        Long version) {
+        Long version,
+
+        @Size(max = 30, message = "may list at most 30 primary audiences")
+        List<@NotNull UUID> primaryAudienceIds,
+
+        @Size(max = 30, message = "may list at most 30 secondary audiences")
+        List<@NotNull UUID> secondaryAudienceIds) {
 }

@@ -56,13 +56,17 @@ class BlogQueryCountTest extends IntegrationTest {
     // ── Query budget ───────────────────────────────────────────────────────
 
     @Test
-    void listingTenPostsWithAuthorsAndTagsUsesAFixedNumberOfQueries() throws Exception {
+    void listingTenPostsWithAuthorsTagsAndAudiencesUsesAFixedNumberOfQueries() throws Exception {
         String author = createAuthor("Lena");
         String tag = createTag("FinOps");
         for (int i = 0; i < 10; i++) {
             Map<String, Object> body = postBody("Post " + i, doc("Body " + i));
             body.put("authorIds", List.of(author));
             body.put("tagIds", List.of(tag));
+            // Distinct audiences per post also exercise batching of the audience references.
+            String audience = data(call(post("/api/v1/audiences"), Map.of("name", "Audience " + i))
+                    .andExpect(status().isCreated())).path("id").asText();
+            body.put("primaryAudienceIds", List.of(audience));
             JsonNode created = data(call(post("/api/v1/posts"), body).andExpect(status().isCreated()));
             call(post("/api/v1/posts/" + created.path("id").asText() + "/publish")).andExpect(status().isOk());
         }
@@ -74,7 +78,7 @@ class BlogQueryCountTest extends IntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(10));
 
-        // 1 count + 1 page of posts + 1 batched authors + 1 batched tags.
+        // 1 count + 1 page + batched authors, tags, assignments and audience labels.
         assertThat(statistics.getPrepareStatementCount()).isLessThanOrEqualTo(6);
     }
 }

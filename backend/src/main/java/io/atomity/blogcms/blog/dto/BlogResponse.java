@@ -1,6 +1,8 @@
 package io.atomity.blogcms.blog.dto;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.atomity.blogcms.audience.dto.AudienceRef;
+import io.atomity.blogcms.audience.entity.AudienceType;
 import io.atomity.blogcms.author.dto.AuthorRef;
 import io.atomity.blogcms.media.dto.MediaRef;
 import io.atomity.blogcms.post.dto.PostSummaryResponse;
@@ -24,6 +26,8 @@ public record BlogResponse(
         boolean featured,
         List<AuthorRef> authors,
         List<TagRef> tags,
+        List<AudienceRef> primaryAudiences,
+        List<AudienceRef> secondaryAudiences,
         MediaRef coverImage,
         int wordCount,
         int readingTimeMinutes,
@@ -38,6 +42,8 @@ public record BlogResponse(
     public static BlogResponse of(Post post) {
         return new BlogResponse(post.getId(), post.getTitle(), post.getSlug(), post.getExcerpt(),
                 post.isFeatured(), PostSummaryResponse.authorRefs(post), PostSummaryResponse.tagRefs(post),
+                PostSummaryResponse.audienceRefs(post, AudienceType.PRIMARY),
+                PostSummaryResponse.audienceRefs(post, AudienceType.SECONDARY),
                 MediaRef.of(post.getCoverImage()), post.getWordCount(), post.getReadingTimeMinutes(),
                 post.getPublishedAt(), post.getUpdatedAt(), post.getContent(), post.getCoverImageAlt(),
                 post.getSeoTitle(), post.getMetaDescription(), post.getCanonicalUrl());

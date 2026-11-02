@@ -15,6 +15,7 @@ public class TestcontainersConfiguration {
     @Bean
     @ServiceConnection
     PostgreSQLContainer<?> postgresContainer() {
-        return new PostgreSQLContainer<>("postgres:16-alpine");
+        // Allow another Postgres 16 variant on hosts that cannot run Alpine images.
+        return new PostgreSQLContainer<>(System.getenv().getOrDefault("TEST_POSTGRES_IMAGE", "postgres:16-alpine"));
     }
 }
