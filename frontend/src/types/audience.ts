@@ -6,7 +6,7 @@ export interface Audience {
   createdAt: string;
 }
 
-/** A audience as embedded in a post. */
+/** An audience as embedded in a post. */
 export interface AudienceRef {
   id: string;
   name: string;

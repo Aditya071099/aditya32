@@ -276,7 +276,7 @@ function PeoplePanel({ form, onChange }: { form: EditorForm; onChange: (patch: P
   );
 }
 
-// ── SEO ─────────────────────────────────────────────────────────────────
+// ── Audience ─────────────────────────────────────────────────────────────────
 
 function AudiencePanel({ form, errors, onChange }: { form: EditorForm; errors: FormErrors; onChange: (patch: Partial<EditorForm>) => void }) {
   const audiences = useAsync(listAudiences, []);
@@ -291,7 +291,7 @@ function AudiencePanel({ form, errors, onChange }: { form: EditorForm; errors: F
         <p role="status" className="text-[12px] text-muted">Loading audiences...</p>
       ) : (
         <>
-          <Field label="Primary audience" htmlFor="primary-audiences" error={errors.primaryAudienceIds} hint="The main groups this post targets.">
+          <Field label="Primary audience" htmlFor="primary-audiences" count={{ current: form.primaryAudienceIds.length, max: 30 }} error={errors.primaryAudienceIds} hint="The main groups this post targets.">
             <MultiSelect
               id="primary-audiences"
               placeholder="Choose primary audiences..."
@@ -300,7 +300,7 @@ function AudiencePanel({ form, errors, onChange }: { form: EditorForm; errors: F
               onChange={(primaryAudienceIds) => onChange({ primaryAudienceIds })}
             />
           </Field>
-          <Field label="Secondary audience" htmlFor="secondary-audiences" error={errors.secondaryAudienceIds} hint="Other groups this post is relevant to.">
+          <Field label="Secondary audience" htmlFor="secondary-audiences" count={{ current: form.secondaryAudienceIds.length, max: 30 }} error={errors.secondaryAudienceIds} hint="Other groups this post is relevant to.">
             <MultiSelect
               id="secondary-audiences"
               placeholder="Choose secondary audiences..."
