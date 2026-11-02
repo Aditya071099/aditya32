@@ -21,6 +21,8 @@ export interface EditorForm {
   featured: boolean;
   authorIds: string[];
   tagIds: string[];
+  primaryAudienceIds: string[];
+  secondaryAudienceIds: string[];
 }
 
 export type FormErrors = Partial<Record<keyof EditorForm, string>>;
@@ -40,6 +42,8 @@ export const EMPTY_FORM: EditorForm = {
   featured: false,
   authorIds: [],
   tagIds: [],
+  primaryAudienceIds: [],
+  secondaryAudienceIds: [],
 };
 
 export function formFromPost(post: Post): EditorForm {
@@ -58,6 +62,8 @@ export function formFromPost(post: Post): EditorForm {
     featured: post.featured,
     authorIds: post.authors.map((a) => a.id),
     tagIds: post.tags.map((t) => t.id),
+    primaryAudienceIds: (post.primaryAudiences ?? []).map((a) => a.id),
+    secondaryAudienceIds: (post.secondaryAudiences ?? []).map((a) => a.id),
   };
 }
 
@@ -104,6 +110,8 @@ export function inputFromForm(form: EditorForm): PostInput {
     featured: form.featured,
     authorIds: form.authorIds,
     tagIds: form.tagIds,
+    primaryAudienceIds: form.primaryAudienceIds,
+    secondaryAudienceIds: form.secondaryAudienceIds,
   };
 }
 
@@ -118,6 +126,10 @@ export function formAfterSave(current: EditorForm, sent: EditorForm, savedSlug: 
 /** Client-side checks run before saving; the API repeats them. */
 export function validateForm(form: EditorForm): FormErrors {
   const errors: FormErrors = {};
+  if (form.primaryAudienceIds.length > 30) errors.primaryAudienceIds = "Choose at most 30 primary audiences.";
+  if (form.secondaryAudienceIds.length > 30) errors.secondaryAudienceIds = "Choose at most 30 secondary audiences.";
+  if (form.primaryAudienceIds.some((id) => form.secondaryAudienceIds.includes(id)))
+    errors.secondaryAudienceIds = [errors.secondaryAudienceIds, "An audience can only belong to one group per post."].filter(Boolean).join(" ");
   if (form.title.length > POST_LIMITS.title) errors.title = `Keep the title under ${POST_LIMITS.title} characters.`;
   if (form.slug && !SLUG_PATTERN.test(form.slug)) errors.slug = "Use lowercase letters, numbers and single hyphens only.";
   if (form.excerpt.length > POST_LIMITS.excerpt) errors.excerpt = `Keep the excerpt under ${POST_LIMITS.excerpt} characters.`;

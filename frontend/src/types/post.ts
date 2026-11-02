@@ -1,4 +1,5 @@
 import type { AuthorRef } from "./author";
+import type { AudienceRef } from "./audience";
 import type { ContentDoc } from "./content";
 import type { MarkdownSourceRef } from "./markdown";
 import type { MediaRef } from "./media";
@@ -18,6 +19,8 @@ export interface PostSummary {
   featured: boolean;
   authors: AuthorRef[];
   tags: TagRef[];
+  primaryAudiences: AudienceRef[];
+  secondaryAudiences: AudienceRef[];
   coverImage: MediaRef | null;
   wordCount: number;
   readingTimeMinutes: number;
@@ -55,6 +58,8 @@ export interface PostInput {
   featured: boolean;
   authorIds: string[];
   tagIds: string[];
+  primaryAudienceIds: string[];
+  secondaryAudienceIds: string[];
 }
 
 export type PostSortKey = "updatedAt" | "title" | "publishedAt" | "wordCount";

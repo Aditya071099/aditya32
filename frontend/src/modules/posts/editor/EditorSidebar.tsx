@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Check, CircleAlert, ImagePlus, RefreshCw, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { Field } from "@/components/ui/Field";
 import { MultiSelect } from "@/components/ui/MultiSelect";
 import { Panel } from "@/components/ui/Panel";
@@ -15,6 +16,7 @@ import { formatDateTime, pluralize } from "@/lib/format";
 import { slugify } from "@/lib/slug";
 import { cn } from "@/lib/utils";
 import { createAuthor, listAuthors } from "@/modules/authors/api";
+import { listAudiences } from "@/modules/audiences/api";
 import { MediaPickerModal } from "@/modules/media/MediaPickerModal";
 import { createTag, listTags } from "@/modules/tags/api";
 import { POST_LIMITS, type PostStatus } from "@/types/post";
@@ -47,6 +49,7 @@ export function EditorSidebar({ form, errors, meta, wordCount, readingTime, onCh
       <UrlPanel form={form} errors={errors} status={meta.status} onChange={onChange} onSlugEdited={onSlugEdited} />
       <CoverPanel form={form} onChange={onChange} />
       <PeoplePanel form={form} onChange={onChange} />
+      <AudiencePanel form={form} errors={errors} onChange={onChange} />
       <SeoPanel form={form} errors={errors} onChange={onChange} />
       <Panel title="Options">
         <Switch
@@ -273,7 +276,45 @@ function PeoplePanel({ form, onChange }: { form: EditorForm; onChange: (patch: P
   );
 }
 
-// ── SEO ─────────────────────────────────────────────────────────────────
+// ── Audience ─────────────────────────────────────────────────────────────────
+
+function AudiencePanel({ form, errors, onChange }: { form: EditorForm; errors: FormErrors; onChange: (patch: Partial<EditorForm>) => void }) {
+  const audiences = useAsync(listAudiences, []);
+  const options = (audiences.data ?? []).map((a) => ({ id: a.id, label: a.name }));
+
+  return (
+    <Panel title="Audience" bodyClassName="flex flex-col gap-4">
+      <p className="text-[12px] text-secondary">Choose who this post is written for. Manage labels in Audiences.</p>
+      {audiences.error ? (
+        <ErrorState title="Couldn't load audiences" error={audiences.error} onRetry={audiences.reload} />
+      ) : audiences.loading && !audiences.data ? (
+        <p role="status" className="text-[12px] text-muted">Loading audiences...</p>
+      ) : (
+        <>
+          <Field label="Primary audience" htmlFor="primary-audiences" count={{ current: form.primaryAudienceIds.length, max: 30 }} error={errors.primaryAudienceIds} hint="The main groups this post targets.">
+            <MultiSelect
+              id="primary-audiences"
+              placeholder="Choose primary audiences..."
+              options={options.filter((a) => form.primaryAudienceIds.includes(a.id) || !form.secondaryAudienceIds.includes(a.id))}
+              value={form.primaryAudienceIds}
+              onChange={(primaryAudienceIds) => onChange({ primaryAudienceIds })}
+            />
+          </Field>
+          <Field label="Secondary audience" htmlFor="secondary-audiences" count={{ current: form.secondaryAudienceIds.length, max: 30 }} error={errors.secondaryAudienceIds} hint="Other groups this post is relevant to.">
+            <MultiSelect
+              id="secondary-audiences"
+              placeholder="Choose secondary audiences..."
+              options={options.filter((a) => form.secondaryAudienceIds.includes(a.id) || !form.primaryAudienceIds.includes(a.id))}
+              value={form.secondaryAudienceIds}
+              onChange={(secondaryAudienceIds) => onChange({ secondaryAudienceIds })}
+            />
+          </Field>
+          {audiences.data?.length === 0 && <p className="text-[12px] text-muted">Create audience labels in Audiences to select them here.</p>}
+        </>
+      )}
+    </Panel>
+  );
+}
 
 function SeoPanel({ form, errors, onChange }: { form: EditorForm; errors: FormErrors; onChange: (patch: Partial<EditorForm>) => void }) {
   const title = form.seoTitle || form.title || "Untitled post";

@@ -1,5 +1,9 @@
 package io.atomity.blogcms.post.service;
 
+import io.atomity.blogcms.audience.entity.Audience;
+import io.atomity.blogcms.audience.entity.AudienceAssignment;
+import io.atomity.blogcms.audience.entity.AudienceType;
+import io.atomity.blogcms.audience.repository.AudienceRepository;
 import io.atomity.blogcms.author.entity.Author;
 import io.atomity.blogcms.author.repository.AuthorRepository;
 import io.atomity.blogcms.markdown.entity.MarkdownSource;
@@ -47,16 +51,19 @@ public class PostService {
     private final PostRepository postRepository;
     private final AuthorRepository authorRepository;
     private final TagRepository tagRepository;
+    private final AudienceRepository audienceRepository;
     private final MediaRepository mediaRepository;
     private final MarkdownSourceRepository markdownSourceRepository;
     private final MarkdownSourceService markdownSourceService;
 
     public PostService(PostRepository postRepository, AuthorRepository authorRepository,
                        TagRepository tagRepository, MediaRepository mediaRepository,
-                       MarkdownSourceRepository markdownSourceRepository, MarkdownSourceService markdownSourceService) {
+                       MarkdownSourceRepository markdownSourceRepository, MarkdownSourceService markdownSourceService,
+                       AudienceRepository audienceRepository) {
         this.postRepository = postRepository;
         this.authorRepository = authorRepository;
         this.tagRepository = tagRepository;
+        this.audienceRepository = audienceRepository;
         this.mediaRepository = mediaRepository;
         this.markdownSourceRepository = markdownSourceRepository;
         this.markdownSourceService = markdownSourceService;
@@ -206,6 +213,17 @@ public class PostService {
 
         List<Author> authors = resolveOrdered(request.authorIds(), authorRepository::findAllById, Author::getId, "author");
         List<Tag> tags = resolveOrdered(request.tagIds(), tagRepository::findAllById, Tag::getId, "tag");
+        List<Audience> primary = resolveOrdered(request.primaryAudienceIds(), audienceRepository::findAllById,
+                Audience::getId, "primary audience");
+        List<Audience> secondary = resolveOrdered(request.secondaryAudienceIds(), audienceRepository::findAllById,
+                Audience::getId, "secondary audience");
+        var primaryIds = primary.stream().map(Audience::getId).collect(Collectors.toSet());
+        if (secondary.stream().anyMatch(a -> primaryIds.contains(a.getId()))) {
+            throw ApiException.badRequest("VALIDATION_ERROR", "An audience cannot be both primary and secondary on the same post");
+        }
+        List<AudienceAssignment> audiences = new ArrayList<>();
+        primary.forEach(a -> audiences.add(new AudienceAssignment(a, AudienceType.PRIMARY)));
+        secondary.forEach(a -> audiences.add(new AudienceAssignment(a, AudienceType.SECONDARY)));
         List<Media> inlineImages = resolveOrdered(content.imageIds(), mediaRepository::findAllById, Media::getId, "image");
         Media cover = request.coverImageId() == null ? null : mediaRepository.findById(request.coverImageId())
                 .orElseThrow(() -> ApiException.badRequest("UNKNOWN_REFERENCE", "The cover image does not exist"));
@@ -217,7 +235,7 @@ public class PostService {
                 request.content(), content.text(), content.wordCount(), content.readingTimeMinutes(),
                 cover, clean(request.coverImageAlt()), markdownSource, clean(request.seoTitle()), clean(request.metaDescription()),
                 clean(request.focusKeyword()), clean(request.canonicalUrl()), Boolean.TRUE.equals(request.featured()),
-                authors, tags, inlineImages);
+                authors, tags, inlineImages, audiences);
     }
 
     private String resolveSlug(String requested, String title, UUID selfId) {

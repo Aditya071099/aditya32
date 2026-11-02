@@ -12,7 +12,7 @@ export interface Crumb {
 /** Breadcrumb for the current path. Pure function of the pathname. */
 export function resolveBreadcrumb(pathname: string): Crumb[] {
   const [section, sub] = pathname.split("/").filter(Boolean);
-  const sections: Record<string, string> = { posts: "Posts", authors: "Authors", tags: "Tags", media: "Media" };
+  const sections: Record<string, string> = { posts: "Posts", authors: "Authors", tags: "Tags", audiences: "Audiences", media: "Media" };
   const root: Crumb = { label: sections[section] ?? "Home", href: `/${section ?? ""}` };
   if (section === "posts" && sub) return [root, { label: sub === "new" ? "New post" : "Edit post" }];
   return [root];

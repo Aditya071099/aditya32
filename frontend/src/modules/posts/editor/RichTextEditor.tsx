@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
+import { hasLibraryImageMediaIdMismatch } from "@/lib/content";
 import { MediaPickerModal } from "@/modules/media/MediaPickerModal";
 import type { ContentDoc } from "@/types/content";
 import type { MarkdownSourceRef } from "@/types/markdown";
@@ -95,6 +96,7 @@ export function RichTextEditor({
 function Toolbar({ editor }: { editor: Editor }) {
   const [linkOpen, setLinkOpen] = useState(false);
   const [imageOpen, setImageOpen] = useState(false);
+  const [replacementPosition, setReplacementPosition] = useState<number | null>(null);
 
   // The toolbar re-renders only when one of these flags changes, not on every keystroke.
   const state = useEditorState({
@@ -113,6 +115,19 @@ function Toolbar({ editor }: { editor: Editor }) {
       blockquote: e.isActive("blockquote"),
       codeBlock: e.isActive("codeBlock"),
       link: e.isActive("link"),
+      invalidImagePosition: (() => {
+        let position: number | null = null;
+        e.state.doc.descendants((node, pos) => {
+          if (
+	    position === null &&
+            node.type.name === "image" &&
+            hasLibraryImageMediaIdMismatch(node.attrs.src, node.attrs.mediaId)
+          ) {
+            position = pos;
+          }
+        });
+        return position;
+      })(),
       canUndo: e.can().undo(),
       canRedo: e.can().redo(),
     }),
@@ -142,8 +157,34 @@ function Toolbar({ editor }: { editor: Editor }) {
       <ToolButton icon={Quote} label="Quote" active={state.blockquote} onClick={() => chain().toggleBlockquote().run()} />
       <ToolButton icon={SquareCode} label="Code block" active={state.codeBlock} onClick={() => chain().toggleCodeBlock().run()} />
       <ToolButton icon={Minus} label="Divider" onClick={() => chain().setHorizontalRule().run()} />
-      <ToolButton icon={ImagePlus} label="Insert image" onClick={() => setImageOpen(true)} />
+      <ToolButton
+        icon={ImagePlus}
+        label="Insert image"
+        onClick={() => {
+          setReplacementPosition(editor.isActive("image") ? editor.state.selection.from : null);
+          setImageOpen(true);
+        }}
+      />
       <div className="flex-1" />
+      {state.invalidImagePosition !== null && (
+        <div role="alert" className="flex w-full items-center gap-2 border-t border-warning/30 px-2 pt-2 text-[11px] text-warning">
+          <span className="flex-1">An image&apos;s media ID does not match its source URL.</span>
+          <button
+            type="button"
+            className="font-semibold underline underline-offset-2 hover:text-ink"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              if (state.invalidImagePosition !== null) {
+                setReplacementPosition(state.invalidImagePosition);
+                editor.chain().focus().setNodeSelection(state.invalidImagePosition).run();
+                setImageOpen(true);
+              }
+            }}
+          >
+            Replace image
+          </button>
+        </div>
+      )}
       <ToolButton icon={Undo2} label="Undo (Ctrl+Z)" disabled={!state.canUndo} onClick={() => chain().undo().run()} />
       <ToolButton icon={Redo2} label="Redo (Ctrl+Shift+Z)" disabled={!state.canRedo} onClick={() => chain().redo().run()} />
 
@@ -152,12 +193,20 @@ function Toolbar({ editor }: { editor: Editor }) {
       {imageOpen && (
         <MediaPickerModal
           title="Insert image"
-          onClose={() => setImageOpen(false)}
-          onSelect={(media) =>
-            chain()
-              .insertContent({ type: "image", attrs: { src: media.url, alt: media.altText, mediaId: media.id } })
-              .run()
-          }
+          onClose={() => {
+            setImageOpen(false);
+            setReplacementPosition(null);
+          }}
+          onSelect={(media) => {
+            const attrs = { src: media.url, alt: media.altText, mediaId: media.id };
+            const command = editor.chain().focus();
+            if (replacementPosition !== null) {
+              command.setNodeSelection(replacementPosition).updateAttributes("image", attrs).run();
+              setReplacementPosition(null);
+            } else {
+              command.insertContent({ type: "image", attrs }).run();
+            }
+          }}
         />
       )}
     </div>

@@ -1,6 +1,7 @@
 package io.atomity.blogcms.post.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.atomity.blogcms.audience.entity.AudienceAssignment;
 import io.atomity.blogcms.author.entity.Author;
 import io.atomity.blogcms.markdown.entity.MarkdownSource;
 import io.atomity.blogcms.media.entity.Media;
@@ -31,5 +32,6 @@ public record PostEdit(
         boolean featured,
         List<Author> authors,
         Collection<Tag> tags,
-        Collection<Media> inlineImages) {
+        Collection<Media> inlineImages,
+        Collection<AudienceAssignment> audiences) {
 }
