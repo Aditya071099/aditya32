@@ -7,6 +7,9 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -23,6 +26,7 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -158,6 +162,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                 .body(ApiResponse.error(apiError("METHOD_NOT_ALLOWED", ex.getMessage())));
     }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+public ResponseEntity<ApiResponse<Object>> handleMediaTypeNotSupported(
+        HttpMediaTypeNotSupportedException ex) {
+    return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+            .body(ApiResponse.error(apiError(
+                    "UNSUPPORTED_TYPE", "The request Content-Type is not supported")));
+}
+
+@ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+public ResponseEntity<ApiResponse<Object>> handleMediaTypeNotAcceptable(
+        HttpMediaTypeNotAcceptableException ex) {
+    return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
+            .body(ApiResponse.error(apiError(
+                    "NOT_ACCEPTABLE", "The requested response format is not supported")));
+}
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleUnexpected(Exception ex) {

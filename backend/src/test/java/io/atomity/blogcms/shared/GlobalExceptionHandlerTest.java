@@ -9,6 +9,10 @@ import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import java.util.List;
 
 import java.sql.SQLException;
 
@@ -16,7 +20,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /** Database errors as Spring hands them to the handler: a DataIntegrityViolationException around Hibernate's. */
 class GlobalExceptionHandlerTest {
-
     private static final String CORRELATION_ID = "test-correlation-id";
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
@@ -60,6 +63,26 @@ class GlobalExceptionHandlerTest {
                 new SQLException("violates check constraint", "23514"), "ck_posts_status");
 
         assertResponse(handler.handleDataIntegrity(wrap(cause)), HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR");
+    }
+
+    @Test
+    void unsupportedContentTypeReturns415() {
+
+        var exception = new HttpMediaTypeNotSupportedException(MediaType.TEXT_PLAIN_VALUE);
+
+        var response = handler.handleMediaTypeNotSupported(exception);
+
+        assertResponse(response, HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_TYPE");
+    }
+
+    @Test
+    void unacceptableResponseTypeReturns406() {
+        var exception = new HttpMediaTypeNotAcceptableException(
+                List.of(MediaType.APPLICATION_XML));
+
+        var response = handler.handleMediaTypeNotAcceptable(exception);
+
+        assertResponse(response, HttpStatus.NOT_ACCEPTABLE, "NOT_ACCEPTABLE");
     }
 
     private static DataIntegrityViolationException wrap(Exception cause) {

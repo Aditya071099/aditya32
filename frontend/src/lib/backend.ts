@@ -18,14 +18,11 @@ export function backendBaseUrl(): string {
 }
 
 /**
- * Headers passed on to the backend for every proxied call: the caller's address (the
- * backend rate-limits sign-in attempts per client) and the correlation ID, so one
- * request can be followed through both services' logs.
+ * Headers passed to the backend. Preserve the correlation ID for tracing,
+ * but never forward client-controlled IP headers as trusted identity.
  */
 export function forwardingHeaders(request: NextRequest): Headers {
   const headers = new Headers();
-  const forwardedFor = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
-  if (forwardedFor) headers.set("X-Forwarded-For", forwardedFor);
   const correlationId = request.headers.get("x-correlation-id");
   if (correlationId) headers.set("X-Correlation-ID", correlationId);
   return headers;

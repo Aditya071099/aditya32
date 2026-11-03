@@ -27,15 +27,10 @@ public class AuthController {
     }
 
     /**
-     * Who is signing in, for rate limiting. The backend is only reachable through the
-     * frontend's route handlers, which set X-Forwarded-For to the browser's address;
-     * without it, the direct peer address is used.
+     * Use the actual TCP peer for rate limiting.
+     * Client-supplied forwarding headers are not trusted.
      */
     private static String clientKey(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].strip();
-        }
         return request.getRemoteAddr();
     }
 }
